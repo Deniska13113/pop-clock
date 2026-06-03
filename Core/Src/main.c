@@ -160,6 +160,9 @@ uint8_t number_fraze;
 uint8_t auto_change=1;
 
 
+
+
+uint8_t sweetch_off;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -251,7 +254,10 @@ int main(void)
   GetTimeDate(&Hou, &Min, &Sec, &Dat, &Week, &Mou, &Year);
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_data, 3);
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
-  //HAL_TIM_Base_Start_IT(&htim4);
+
+#if 1 // Выключить если хуйня
+  HAL_TIM_Base_Start_IT(&htim4);
+#endif
   //HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
   //EnterInMenu();
   /* USER CODE END 2 */
@@ -660,9 +666,9 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 287;
+  htim4.Init.Prescaler = 7199;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 50000;
+  htim4.Init.Period = 10;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
@@ -757,24 +763,27 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 void HAL_ADC_ConvCpltCallback (ADC_HandleTypeDef * hadc)
 {
-	if(adc_data[2]>3800 && auto_bright==1)
+	if (sweetch_off == 0)
 	{
-		TIM2->CCR3 = TIM2->ARR*0.1f;
+		if (adc_data[2] > 3800 && auto_bright == 1)
+		{
+			TIM2->CCR3 = TIM2->ARR * 0.1f;
+		}
+		else if (adc_data[2] < 800 && auto_bright == 1)
+		{
+			TIM2->CCR3 = TIM2->ARR;
+		}
+		else if (adc_data[2] > 1200 && adc_data[2] < 2000
+				&& auto_bright == 1) {
+			TIM2->CCR3 = TIM2->ARR * 0.7f;
+		}
+		else if (adc_data[2] > 2300 && adc_data[2] < 3500
+				&& auto_bright == 1) {
+			TIM2->CCR3 = TIM2->ARR * 0.3f;
+		}
+		else if (auto_bright == 0)
+			TIM2->CCR3 = TIM2->ARR / 100 * Bright_set;
 	}
-	else if(adc_data[2]<800 && auto_bright==1)
-	{
-		TIM2->CCR3 = TIM2->ARR;
-	}
-	else if(adc_data[2]>1200 && adc_data[2]<2000 && auto_bright==1)
-	{
-		TIM2->CCR3 = TIM2->ARR*0.7f;
-	}
-	else if(adc_data[2]>2300 && adc_data[2]<3500 && auto_bright==1)
-	{
-		TIM2->CCR3 = TIM2->ARR*0.3f;
-	}
-	else if (auto_bright==0) TIM2->CCR3 = TIM2->ARR/100*Bright_set;
-
 
 
 	float v_bat = adc_data[1]*3.3f/4095.0f/0.666f;
@@ -808,7 +817,16 @@ void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef * htim)
 	{
 		GoSleep();
 	}*/
-	static uint8_t poloj;
+	if(sweetch_off == 1)
+	{
+		TIM2->CCR3 -=10;
+		if(TIM2->CCR3==0)
+		{
+			sweetch_off = 0;
+			need_sleep = 1;
+		}
+	}
+	/*static uint8_t poloj;
 	if (poloj==0)
 	{
 		poloj = 1;
@@ -818,7 +836,7 @@ void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef * htim)
 	{
 		poloj = 0;
 		HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_4);
-	}
+	}*/
 
 }
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
@@ -886,7 +904,7 @@ void WakeUp(void)
 	ST7789_SleepModeExit();
 	HAL_Delay(100);
 	ST7789_DrawFilledRectangle(5, 5, 285, 95, color_back_now);
-	//HAL_TIM_Base_Start_IT(&htim4);
+	HAL_TIM_Base_Start_IT(&htim4);
 	if(auto_change==1)
 	{
 	HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
@@ -1962,7 +1980,9 @@ void HAL_RTC_AlarmAEventCallback (RTC_HandleTypeDef * hrtc)
 	}
 	HAL_RTC_DeactivateAlarm(hrtc, RTC_ALARM_A);
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
+#if 0 // Включить после теста
 	HAL_TIM_Base_Start_IT(&htim4);
+#endif
 }
 uint32_t rtc_to_seconds(RTC_DateTypeDef *d, RTC_TimeTypeDef *t)
 {
@@ -1981,7 +2001,8 @@ void Now_Time(void)
 	if(now_time - time_was >=time_set_to_switch_off)
 	{
 		time_was = now_time;
-		GoSleep();
+		//GoSleep();
+		sweetch_off = 1;
 
 	}
 }
