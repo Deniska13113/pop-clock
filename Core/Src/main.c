@@ -260,10 +260,7 @@ int main(void)
   GetTimeDate(&Hou, &Min, &Sec, &Dat, &Week, &Mou, &Year);
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_data, 3);
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
-
-#if 1 // Выключить если хуйня
   HAL_TIM_Base_Start_IT(&htim4);
-#endif
   //HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
   //EnterInMenu();
   /* USER CODE END 2 */
@@ -882,17 +879,22 @@ void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef * htim)
 
 
 
-	/*static uint8_t poloj;
-	if (poloj==0)
+	static uint8_t poloj;
+	static uint16_t count_alarm;
+	if (poloj==0 && count_alarm==200 && alarm_active == 1)
 	{
+		count_alarm=0;
 		poloj = 1;
 		HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
 	}
-	else
+	else if (poloj==1 && count_alarm==200 && alarm_active == 1)
 	{
+		count_alarm=0;
 		poloj = 0;
 		HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_4);
-	}*/
+	}
+	else if(alarm_active == 1)
+		count_alarm++;
 
 }
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
@@ -1632,7 +1634,6 @@ void ButtonShortPressHandler(void){
 		{
 			alarm_active=0;
 		HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_4);
-		HAL_TIM_Base_Stop_IT(&htim4);
 		}
 		break;
 	case STATE_MENU:
@@ -2035,10 +2036,6 @@ void HAL_RTC_AlarmAEventCallback (RTC_HandleTypeDef * hrtc)
 		need_wake_up=1;
 	}
 	HAL_RTC_DeactivateAlarm(hrtc, RTC_ALARM_A);
-	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
-#if 0 // Включить после теста
-	HAL_TIM_Base_Start_IT(&htim4);
-#endif
 }
 uint32_t rtc_to_seconds(RTC_DateTypeDef *d, RTC_TimeTypeDef *t)
 {
