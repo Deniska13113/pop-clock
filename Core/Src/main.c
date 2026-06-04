@@ -763,7 +763,7 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 void HAL_ADC_ConvCpltCallback (ADC_HandleTypeDef * hadc)
 {
-	if (sweetch_off == 0)
+	if (sweetch_off == 0 && need_sleep==0)
 	{
 		if (adc_data[2] > 3800 && auto_bright == 1)
 		{
