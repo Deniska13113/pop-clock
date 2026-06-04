@@ -55,6 +55,12 @@ typedef enum {
     COLOR_BLUE,
     COLOR_DONE
 } ColorEditState;*/
+
+
+enum bright_set
+{
+	bright_set_10,bright_set_30,bright_set_70,bright_set_100,bright_set_manual
+};
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -162,7 +168,7 @@ uint8_t auto_change=1;
 
 
 
-uint8_t sweetch_off;
+uint8_t sweetch_off,sweetch_on, now_bright_is;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -767,22 +773,22 @@ void HAL_ADC_ConvCpltCallback (ADC_HandleTypeDef * hadc)
 	{
 		if (adc_data[2] > 3800 && auto_bright == 1)
 		{
-			TIM2->CCR3 = TIM2->ARR * 0.1f;
+			now_bright_is = bright_set_10;//TIM2->CCR3 = TIM2->ARR * 0.1f;
 		}
 		else if (adc_data[2] < 800 && auto_bright == 1)
 		{
-			TIM2->CCR3 = TIM2->ARR;
+			now_bright_is = bright_set_100;//TIM2->CCR3 = TIM2->ARR;
 		}
 		else if (adc_data[2] > 1200 && adc_data[2] < 2000
 				&& auto_bright == 1) {
-			TIM2->CCR3 = TIM2->ARR * 0.7f;
+			now_bright_is = bright_set_70;//TIM2->CCR3 = TIM2->ARR * 0.7f;
 		}
 		else if (adc_data[2] > 2300 && adc_data[2] < 3500
 				&& auto_bright == 1) {
-			TIM2->CCR3 = TIM2->ARR * 0.3f;
+			now_bright_is = bright_set_30;//TIM2->CCR3 = TIM2->ARR * 0.3f;
 		}
 		else if (auto_bright == 0)
-			TIM2->CCR3 = TIM2->ARR / 100 * Bright_set;
+			now_bright_is = bright_set_manual;//TIM2->CCR3 = TIM2->ARR / 100 * Bright_set;
 	}
 
 
@@ -813,19 +819,69 @@ void HAL_ADC_ConvCpltCallback (ADC_HandleTypeDef * hadc)
 }
 void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef * htim)
 {
+#define value_change_bright 20
 	/*if(state==STATE_MAIN_SCREEN)
 	{
 		GoSleep();
 	}*/
 	if(sweetch_off == 1)
 	{
-		TIM2->CCR3 -=10;
+		TIM2->CCR3 -= value_change_bright;
 		if(TIM2->CCR3==0)
 		{
 			sweetch_off = 0;
 			need_sleep = 1;
 		}
 	}
+	else
+	{
+		switch (now_bright_is)
+		{
+		case (bright_set_10):
+			{
+			if (TIM2->CCR3 > TIM2->ARR * 0.1f)
+				TIM2->CCR3 -= value_change_bright;
+			else
+				TIM2->CCR3 += value_change_bright;
+			break;
+			}
+		case (bright_set_30):
+			{
+			if (TIM2->CCR3 > TIM2->ARR * 0.3f)
+				TIM2->CCR3 -= value_change_bright;
+			else
+				TIM2->CCR3 += value_change_bright;
+			break;
+			}
+		case (bright_set_70):
+			{
+			if (TIM2->CCR3 > TIM2->ARR * 0.7f)
+				TIM2->CCR3 -= value_change_bright;
+			else
+				TIM2->CCR3 += value_change_bright;
+			break;
+			}
+		case (bright_set_100):
+			{
+			if (TIM2->CCR3 > TIM2->ARR)
+				TIM2->CCR3 -= value_change_bright;
+			else
+				TIM2->CCR3 += value_change_bright;
+			break;
+			}
+		case (bright_set_manual):
+			{
+			if (TIM2->CCR3 >TIM2->ARR / 100 * Bright_set)
+				TIM2->CCR3 -= value_change_bright;
+			else
+				TIM2->CCR3 += value_change_bright;
+			break;
+		}
+		}
+	}
+
+
+
 	/*static uint8_t poloj;
 	if (poloj==0)
 	{
