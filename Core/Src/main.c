@@ -144,7 +144,7 @@ uint8_t color_back_red = 0x1F, color_back_green = 0x3F, color_back_blue = 0x1F,
 uint16_t color_back=ST7789_COLOR_WHITE, color_back_now =ST7789_COLOR_WHITE, color_text = ST7789_COLOR_BLACK, color_text_prev;
 
 
-uint8_t auto_switch_off=1;
+uint8_t auto_switch_off=0;
 uint8_t time_to_switch_off=5;
 uint32_t time_set_to_switch_off=5*1000;
 
@@ -169,6 +169,12 @@ uint8_t auto_change=1;
 
 
 uint8_t sweetch_off,sweetch_on, now_bright_is;
+
+
+uint8_t need_change_frase;
+
+uint8_t color_text_frase_blue, color_text_frase_green, color_text_frase_red;
+uint16_t color_text_frase;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -487,7 +493,7 @@ static void MX_RTC_Init(void)
   */
   sTime.Hours = 14;
   sTime.Minutes = 0;
-  sTime.Seconds = 0;
+  sTime.Seconds = 50;
 
   if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN) != HAL_OK)
   {
@@ -817,6 +823,7 @@ void HAL_ADC_ConvCpltCallback (ADC_HandleTypeDef * hadc)
 void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef * htim)
 {
 #define value_change_bright 20
+#define time_change_frase 5
 	/*if(state==STATE_MAIN_SCREEN)
 	{
 		GoSleep();
@@ -876,6 +883,57 @@ void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef * htim)
 		}
 		}
 	}
+	static uint8_t go_to_back = 1;
+	static uint8_t count_chabge_fraze=0;
+	if (need_change_frase == 1 && go_to_back == 1 && count_chabge_fraze == time_change_frase) {
+		count_chabge_fraze=0;
+		if (color_text_frase_blue > color_back_blue*2)
+			color_text_frase_blue--;
+		else if (color_text_frase_blue < color_back_blue*2)
+		color_text_frase_blue++;
+		if (color_text_frase_green > color_back_green)
+			color_text_frase_green--;
+		else if (color_text_frase_green < color_back_green)
+			color_text_frase_green++;
+		if (color_text_frase_red > color_back_red*2)
+			color_text_frase_red--;
+		else if (color_text_frase_red < color_back_red*2)
+			color_text_frase_red++;
+		color_text_frase = (color_text_frase_red/2 << 11)
+				| (color_text_frase_green << 5) | color_text_frase_blue/2;
+		if (color_text_frase == color_back) {
+			go_to_back = 0;
+			number_fraze++;
+			if (number_fraze > 14)
+				number_fraze = 0;
+			//ST7789_DrawFilledRectangle(5, 5, 285, 95, color_back_now);
+		}
+	}
+
+	if (need_change_frase == 1 && go_to_back == 0 && count_chabge_fraze == time_change_frase) {
+		count_chabge_fraze = 0;
+		if (color_text_frase_blue > color_text_blue*2)
+			color_text_frase_blue--;
+		else if (color_text_frase_blue < color_text_blue*2)
+			color_text_frase_blue++;
+		if (color_text_frase_green > color_text_green)
+			color_text_frase_green--;
+		else if (color_text_frase_green < color_text_green)
+			color_text_frase_green+=2;
+		if (color_text_frase_red > color_text_red*2)
+			color_text_frase_red-=2;
+		else if (color_text_frase_red < color_text_red*2)
+			color_text_frase_red++;
+		color_text_frase = (color_text_frase_red/2 << 11)
+				| (color_text_frase_green << 5) | color_text_frase_blue/2;
+		if (color_text_frase == color_text)
+		{
+			need_change_frase = 0;
+			go_to_back = 1;
+		}
+
+	}
+	if(need_change_frase == 1) count_chabge_fraze++;
 
 
 
@@ -1063,10 +1121,11 @@ void WriteToDisplay(uint8_t hour, uint8_t minutes, uint8_t seconds, uint8_t day,
 		ST7789_PutString(5, 83, buf, Font_16x26, color_text, color_back_now);*/
 		if(hou_past==hour && min_past == minutes && auto_change==1)
 		{
-		ST7789_DrawFilledRectangle(5, 5, 285, 95, color_back_now);
-			number_fraze++;
-			if (number_fraze > 14)
-				number_fraze = 0;
+		//ST7789_DrawFilledRectangle(5, 5, 285, 95, color_back_now);
+			//number_fraze++;
+		need_change_frase = 1;
+			//if (number_fraze > 14)
+				//number_fraze = 0;
 			hou_past = hour + time_change / 60;
 			min_past = minutes + time_change % 60;
 			if (min_past >= 60) {
@@ -1084,6 +1143,10 @@ void WriteToDisplay(uint8_t hour, uint8_t minutes, uint8_t seconds, uint8_t day,
 				if (hou_past >= 24)
 					hou_past -= 24;
 			}
+		}
+		if (color_text_frase == color_back)
+		{
+			ST7789_DrawFilledRectangle(5, 5, 285, 95, color_back_now);
 		}
 		if ((Dat==1 && Mou==1) || (Dat == 31 && Mou ==12))
 		{
@@ -1104,70 +1167,70 @@ void WriteToDisplay(uint8_t hour, uint8_t minutes, uint8_t seconds, uint8_t day,
 		switch (number_fraze) {
 		case 0:
 			ST7789_PutString_Ramk(5, 5, 290, 240, "Ты моя любимая   девочка",
-					Font_16x26, color_text, color_back_now);
+					Font_16x26, color_text_frase, color_back_now);
 			break;
 		case 1:
 			ST7789_PutString_Ramk(5, 5, 290, 240,
-					"Ты самая лучшая вэтой вселенной", Font_16x26, color_text,
+					"Ты самая лучшая вэтой вселенной", Font_16x26, color_text_frase,
 					color_back_now);
 			break;
 		case 2:
 			ST7789_PutString_Ramk(5, 5, 290, 240,
-					"Ты богиня, спус- тившаяся с небес", Font_16x26, color_text,
+					"Ты богиня, спус- тившаяся с небес", Font_16x26, color_text_frase,
 					color_back_now);
 			break;
 		case 3:
 			ST7789_PutString_Ramk(5, 5, 290, 240,
-					"Ты самая красиваядевочка в этом   мире", Font_16x26, color_text,
+					"Ты самая красиваядевочка в этом   мире", Font_16x26, color_text_frase,
 					color_back_now);
 			break;
 		case 4:
 			ST7789_PutString_Ramk(5, 5, 290, 240,
-					"Ты лучшее, что сомной случалось", Font_16x26, color_text,
+					"Ты лучшее, что сомной случалось", Font_16x26, color_text_frase,
 					color_back_now);
 			break;
 		case 5:
 			ST7789_PutString_Ramk(5, 5, 290, 240,
-					"Твоя красота     покоряет мое     сердце", Font_16x26, color_text,
+					"Твоя красота     покоряет мое     сердце", Font_16x26, color_text_frase,
 					color_back_now);
 			break;
 		case 6:
 			ST7789_PutString_Ramk(5, 5, 290, 240,
-					"Моя любовь к тебене знает границ", Font_16x26, color_text,
+					"Моя любовь к тебене знает границ", Font_16x26, color_text_frase,
 					color_back_now);
 			break;
 		case 7:
 			ST7789_PutString_Ramk(5, 5, 290, 240, "Not fake, true   love",
-					Font_16x26, color_text, color_back_now);
+					Font_16x26, color_text_frase, color_back_now);
 			break;
 		case 8:
 			ST7789_PutString_Ramk(5, 5, 290, 240, "Горжусь тобой", Font_16x26,
-					color_text, color_back_now);
+					color_text_frase, color_back_now);
 			break;
 		case 9:
 			ST7789_PutString_Ramk(5, 5, 290, 240, "Ти самая умничка",
-					Font_16x26, color_text, color_back_now);
+					Font_16x26, color_text_frase, color_back_now);
 			break;
 		case 10:
 			ST7789_PutString_Ramk(5, 5, 290, 240,
-					"Очень тебя люблю и очень скучаю", Font_16x26, color_text,
+					"Очень тебя люблю и очень скучаю", Font_16x26, color_text_frase,
 					color_back_now);
 			break;
 		case 11:
 			ST7789_PutString_Ramk(5, 5, 290, 240, "Приезжай скорее",
-					Font_16x26, color_text, color_back_now);
+					Font_16x26, color_text_frase, color_back_now);
 			break;
 		case 12:
 			ST7789_PutString_Ramk(5, 5, 290, 240, "Ты лучше всех,   никого не слушай",
-					Font_16x26, color_text, color_back_now);
+					Font_16x26, color_text_frase, color_back_now);
 			break;
 		case 13:
 			ST7789_PutString_Ramk(5, 5, 290, 240, "Красивая как     ангел", Font_16x26,
-					color_text, color_back_now);
+					color_text_frase, color_back_now);
 			break;
 		case 14:
 			ST7789_PutString_Ramk(5, 5, 290, 240, "Очень скучаю, мойкотик",
-					Font_16x26, color_text, color_back_now);
+					Font_16x26, color_text_frase, color_back_now);
 			break;
 		}
 		}
