@@ -159,7 +159,7 @@ uint8_t need_reset;
 
 
 uint8_t need_wake_up;
-uint8_t number_fraze;
+uint8_t number_fraze = 3;
 
 
 
@@ -175,6 +175,8 @@ uint8_t need_change_frase;
 
 uint8_t color_text_frase_blue, color_text_frase_green, color_text_frase_red;
 uint16_t color_text_frase;
+
+uint8_t flag_need_cleen_up;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -903,14 +905,12 @@ void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef * htim)
 				| (color_text_frase_green << 5) | color_text_frase_blue/2;
 		if (color_text_frase == color_back) {
 			go_to_back = 0;
-			number_fraze++;
-			if (number_fraze > 14)
-				number_fraze = 0;
+			flag_need_cleen_up = 1;
 			//ST7789_DrawFilledRectangle(5, 5, 285, 95, color_back_now);
 		}
 	}
 
-	if (need_change_frase == 1 && go_to_back == 0 && count_chabge_fraze == time_change_frase) {
+	if (need_change_frase == 1 && go_to_back == 0 && count_chabge_fraze == time_change_frase && flag_need_cleen_up == 0) {
 		count_chabge_fraze = 0;
 		if (color_text_frase_blue > color_text_blue*2)
 			color_text_frase_blue--;
@@ -1144,10 +1144,6 @@ void WriteToDisplay(uint8_t hour, uint8_t minutes, uint8_t seconds, uint8_t day,
 					hou_past -= 24;
 			}
 		}
-		if (color_text_frase == color_back)
-		{
-			ST7789_DrawFilledRectangle(5, 5, 285, 95, color_back_now);
-		}
 		if ((Dat==1 && Mou==1) || (Dat == 31 && Mou ==12))
 		{
 			ST7789_PutString_Ramk(5, 5, 290, 240, "С новым годом! С новым счастьем!",Font_16x26, color_text, color_back_now);
@@ -1234,8 +1230,15 @@ void WriteToDisplay(uint8_t hour, uint8_t minutes, uint8_t seconds, uint8_t day,
 			break;
 		}
 		}
+		if(flag_need_cleen_up == 1)
+		{
+			ST7789_DrawFilledRectangle(5, 5, 285, 95, color_back_now);
+			number_fraze++;
+			if(number_fraze>14)
+				number_fraze = 0;
 
-
+		flag_need_cleen_up = 0;
+		}
 		uint8_t charge_state = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_11);
 		static uint8_t count=3;
 		switch (charge_state) {
@@ -1466,6 +1469,10 @@ void WriteToDisplay(uint8_t hour, uint8_t minutes, uint8_t seconds, uint8_t day,
 		ST7789_PutString(5, 150, buf, Font_16x26, color_text, color_back_now);
 		color_text_prev = (color_text_red << 11) | (color_text_green << 5)
 				| color_text_blue;
+		color_text_frase = color_text_prev;
+		color_text_frase_red = color_text_red;
+		color_text_frase_blue = color_text_blue;
+		color_text_frase_green = color_text_green;
 		ST7789_PutString(5, 200, "Цвет текста", Font_16x26, color_text_prev,
 				color_back);
 		}
