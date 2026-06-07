@@ -919,9 +919,9 @@ void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef * htim)
 		if (color_text_frase_green > color_text_green)
 			color_text_frase_green--;
 		else if (color_text_frase_green < color_text_green)
-			color_text_frase_green+=2;
+			color_text_frase_green++;
 		if (color_text_frase_red > color_text_red*2)
-			color_text_frase_red-=2;
+			color_text_frase_red--;
 		else if (color_text_frase_red < color_text_red*2)
 			color_text_frase_red++;
 		color_text_frase = (color_text_frase_red/2 << 11)
