@@ -1390,6 +1390,7 @@ void WriteToDisplay(uint8_t hour, uint8_t minutes, uint8_t seconds, uint8_t day,
 		sprintf(buf, "Число: %02i", dat_set);
 		ST7789_PutString(5, 50, buf, Font_16x26, color_text, color_back_now);
 		//sprintf(buf, "День недели: %01i", weekday_set);
+#if 0
 		ST7789_PutString(5, 100, "День недели:", Font_16x26, color_text, color_back_now);
 		switch (weekday_set) {
 				case 0:
@@ -1414,10 +1415,15 @@ void WriteToDisplay(uint8_t hour, uint8_t minutes, uint8_t seconds, uint8_t day,
 					ST7789_PutString(213, 100, "Сб", Font_16x26, color_text, color_back_now);
 					break;
 				}
+#endif
 		sprintf(buf, "Месяц: %02i", mou_set);
-		ST7789_PutString(5, 150, buf, Font_16x26, color_text, color_back_now);
+		ST7789_PutString(5, 100, buf, Font_16x26, color_text, color_back_now);
 		sprintf(buf, "Год: %02i", year_set);
+<<<<<<< HEAD
 		ST7789_PutString(5, 200, buf, Font_16x26, color_text, color_back_now);
+=======
+		ST7789_PutString(5, 150, buf, Font_16x26, color_text, color_back_now);
+>>>>>>> 2a7eb15 (fix year)
 		if (menu_index != menu_index_past) {
 			ST7789_DrawFilledRectangle(250, 5, 16 * 2, 240 - 11, color_back_now);
 			menu_index_past = menu_index;
@@ -1718,7 +1724,7 @@ void ButtonShortPressHandler(void){
 		break;
 	case STATE_MENU_ITEM_Date:
 		menu_index++;
-		if (menu_index > 3)
+		if (menu_index > 2)
 			menu_index = 0;
 		break;
 	case STATE_MENU_ITEM_Alarm:
@@ -1880,12 +1886,10 @@ void EncoderRight(void){
 		case STATE_MENU_ITEM_Date:
 			if(menu_index==0)dat_set++;
 			if(dat_set>31) dat_set=1;
-			if(menu_index==1)weekday_set++;
-			if(weekday_set>6) weekday_set=0;
-			if(menu_index==2)mou_set++;
+			if(menu_index==1)mou_set++;
 			if(mou_set>12) mou_set=1;
-			if(menu_index==3)year_set++;
-			if(year_set>100) year_set=0;
+			if(menu_index==2)year_set++;
+			if(year_set>99) year_set=0;
 			break;
 		case STATE_MENU_ITEM_Alarm:
 			if(menu_index==0)alarm_set++;
@@ -1988,17 +1992,13 @@ void EncoderLeft(void) {
 			dat_set = 31;
 		else if (menu_index == 0)
 			dat_set--;
-		if (weekday_set == 0 && menu_index == 1)
-			weekday_set = 6;
-		else if (menu_index == 1)
-			weekday_set--;
-		if (mou_set == 1 && menu_index == 2)
+		if (mou_set == 1 && menu_index == 1)
 			mou_set = 12;
-		else if (menu_index == 2)
+		else if (menu_index == 1)
 			mou_set--;
-		if (year_set == 0 && menu_index == 3)
+		if (year_set == 0 && menu_index == 2)
 			year_set = 99;
-		else if (menu_index == 3)
+		else if (menu_index == 2)
 			year_set--;
 		break;
 	case STATE_MENU_ITEM_Alarm:
