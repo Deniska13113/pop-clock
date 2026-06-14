@@ -1275,7 +1275,7 @@ void WriteToDisplay(uint8_t hour, uint8_t minutes, uint8_t seconds, uint8_t day,
 		sprintf(buf, "Месяц: %02i", mou_set);
 		ST7789_PutString(5, 150, buf, Font_16x26, color_text, color_back_now);
 		sprintf(buf, "Год: %02i", year_set);
-		ST7789_PutString(5, 2000, buf, Font_16x26, color_text, color_back_now);
+		ST7789_PutString(5, 200, buf, Font_16x26, color_text, color_back_now);
 		if (menu_index != menu_index_past) {
 			ST7789_DrawFilledRectangle(250, 5, 16 * 2, 240 - 11, color_back_now);
 			menu_index_past = menu_index;
