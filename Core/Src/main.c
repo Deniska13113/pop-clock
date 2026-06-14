@@ -55,6 +55,12 @@ typedef enum {
     COLOR_BLUE,
     COLOR_DONE
 } ColorEditState;*/
+
+
+enum bright_set
+{
+	bright_set_10,bright_set_30,bright_set_70,bright_set_100,bright_set_manual
+};
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -138,7 +144,7 @@ uint8_t color_back_red = 0x1F, color_back_green = 0x3F, color_back_blue = 0x1F,
 uint16_t color_back=ST7789_COLOR_WHITE, color_back_now =ST7789_COLOR_WHITE, color_text = ST7789_COLOR_BLACK, color_text_prev;
 
 
-uint8_t auto_switch_off=1;
+uint8_t auto_switch_off=0;
 uint8_t time_to_switch_off=5;
 uint32_t time_set_to_switch_off=5*1000;
 
@@ -153,13 +159,24 @@ uint8_t need_reset;
 
 
 uint8_t need_wake_up;
-uint8_t number_fraze;
+uint8_t number_fraze = 3;
 
 
 
 uint8_t auto_change=1;
 
 
+
+
+uint8_t sweetch_off,sweetch_on, now_bright_is;
+
+
+uint8_t need_change_frase;
+
+uint8_t color_text_frase_blue, color_text_frase_green, color_text_frase_red;
+uint16_t color_text_frase;
+
+uint8_t flag_need_cleen_up;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -251,7 +268,7 @@ int main(void)
   GetTimeDate(&Hou, &Min, &Sec, &Dat, &Week, &Mou, &Year);
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_data, 3);
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
-  //HAL_TIM_Base_Start_IT(&htim4);
+  HAL_TIM_Base_Start_IT(&htim4);
   //HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
   //EnterInMenu();
   /* USER CODE END 2 */
@@ -478,7 +495,7 @@ static void MX_RTC_Init(void)
   */
   sTime.Hours = 14;
   sTime.Minutes = 0;
-  sTime.Seconds = 0;
+  sTime.Seconds = 50;
 
   if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN) != HAL_OK)
   {
@@ -660,9 +677,9 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 287;
+  htim4.Init.Prescaler = 7199;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 50000;
+  htim4.Init.Period = 10;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
@@ -757,24 +774,27 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 void HAL_ADC_ConvCpltCallback (ADC_HandleTypeDef * hadc)
 {
-	if(adc_data[2]>3800 && auto_bright==1)
+	if (sweetch_off == 0 && need_sleep==0)
 	{
-		TIM2->CCR3 = TIM2->ARR*0.1f;
+		if (adc_data[2] > 3800 && auto_bright == 1)
+		{
+			now_bright_is = bright_set_10;//TIM2->CCR3 = TIM2->ARR * 0.1f;
+		}
+		else if (adc_data[2] < 800 && auto_bright == 1)
+		{
+			now_bright_is = bright_set_100;//TIM2->CCR3 = TIM2->ARR;
+		}
+		else if (adc_data[2] > 1200 && adc_data[2] < 2000
+				&& auto_bright == 1) {
+			now_bright_is = bright_set_70;//TIM2->CCR3 = TIM2->ARR * 0.7f;
+		}
+		else if (adc_data[2] > 2300 && adc_data[2] < 3500
+				&& auto_bright == 1) {
+			now_bright_is = bright_set_30;//TIM2->CCR3 = TIM2->ARR * 0.3f;
+		}
+		else if (auto_bright == 0)
+			now_bright_is = bright_set_manual;//TIM2->CCR3 = TIM2->ARR / 100 * Bright_set;
 	}
-	else if(adc_data[2]<800 && auto_bright==1)
-	{
-		TIM2->CCR3 = TIM2->ARR;
-	}
-	else if(adc_data[2]>1200 && adc_data[2]<2000 && auto_bright==1)
-	{
-		TIM2->CCR3 = TIM2->ARR*0.7f;
-	}
-	else if(adc_data[2]>2300 && adc_data[2]<3500 && auto_bright==1)
-	{
-		TIM2->CCR3 = TIM2->ARR*0.3f;
-	}
-	else if (auto_bright==0) TIM2->CCR3 = TIM2->ARR/100*Bright_set;
-
 
 
 	float v_bat = adc_data[1]*3.3f/4095.0f/0.666f;
@@ -804,21 +824,135 @@ void HAL_ADC_ConvCpltCallback (ADC_HandleTypeDef * hadc)
 }
 void HAL_TIM_PeriodElapsedCallback (TIM_HandleTypeDef * htim)
 {
+#define value_change_bright 20
+#define time_change_frase 5
 	/*if(state==STATE_MAIN_SCREEN)
 	{
 		GoSleep();
 	}*/
-	static uint8_t poloj;
-	if (poloj==0)
+	if(sweetch_off == 1)
 	{
-		poloj = 1;
-		HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
+		TIM2->CCR3 -= value_change_bright;
+		if(TIM2->CCR3==0)
+		{
+			sweetch_off = 0;
+			need_sleep = 1;
+		}
 	}
 	else
 	{
+		switch (now_bright_is)
+		{
+		case (bright_set_10):
+			{
+			if (TIM2->CCR3 > TIM2->ARR * 0.1f)
+				TIM2->CCR3 -= value_change_bright;
+			else
+				TIM2->CCR3 += value_change_bright;
+			break;
+			}
+		case (bright_set_30):
+			{
+			if (TIM2->CCR3 > TIM2->ARR * 0.3f)
+				TIM2->CCR3 -= value_change_bright;
+			else
+				TIM2->CCR3 += value_change_bright;
+			break;
+			}
+		case (bright_set_70):
+			{
+			if (TIM2->CCR3 > TIM2->ARR * 0.7f)
+				TIM2->CCR3 -= value_change_bright;
+			else
+				TIM2->CCR3 += value_change_bright;
+			break;
+			}
+		case (bright_set_100):
+			{
+			if (TIM2->CCR3 > TIM2->ARR)
+				TIM2->CCR3 -= value_change_bright;
+			else
+				TIM2->CCR3 += value_change_bright;
+			break;
+			}
+		case (bright_set_manual):
+			{
+			if (TIM2->CCR3 >TIM2->ARR / 100 * Bright_set)
+				TIM2->CCR3 -= value_change_bright;
+			else
+				TIM2->CCR3 += value_change_bright;
+			break;
+		}
+		}
+	}
+	static uint8_t go_to_back = 1;
+	static uint8_t count_chabge_fraze=0;
+	if (need_change_frase == 1 && go_to_back == 1 && count_chabge_fraze == time_change_frase) {
+		count_chabge_fraze=0;
+		if (color_text_frase_blue > color_back_blue*2)
+			color_text_frase_blue--;
+		else if (color_text_frase_blue < color_back_blue*2)
+		color_text_frase_blue++;
+		if (color_text_frase_green > color_back_green)
+			color_text_frase_green--;
+		else if (color_text_frase_green < color_back_green)
+			color_text_frase_green++;
+		if (color_text_frase_red > color_back_red*2)
+			color_text_frase_red--;
+		else if (color_text_frase_red < color_back_red*2)
+			color_text_frase_red++;
+		color_text_frase = (color_text_frase_red/2 << 11)
+				| (color_text_frase_green << 5) | color_text_frase_blue/2;
+		if (color_text_frase == color_back) {
+			go_to_back = 0;
+			flag_need_cleen_up = 1;
+			//ST7789_DrawFilledRectangle(5, 5, 285, 95, color_back_now);
+		}
+	}
+
+	if (need_change_frase == 1 && go_to_back == 0 && count_chabge_fraze == time_change_frase && flag_need_cleen_up == 0) {
+		count_chabge_fraze = 0;
+		if (color_text_frase_blue > color_text_blue*2)
+			color_text_frase_blue--;
+		else if (color_text_frase_blue < color_text_blue*2)
+			color_text_frase_blue++;
+		if (color_text_frase_green > color_text_green)
+			color_text_frase_green--;
+		else if (color_text_frase_green < color_text_green)
+			color_text_frase_green++;
+		if (color_text_frase_red > color_text_red*2)
+			color_text_frase_red--;
+		else if (color_text_frase_red < color_text_red*2)
+			color_text_frase_red++;
+		color_text_frase = (color_text_frase_red/2 << 11)
+				| (color_text_frase_green << 5) | color_text_frase_blue/2;
+		if (color_text_frase == color_text)
+		{
+			need_change_frase = 0;
+			go_to_back = 1;
+		}
+
+	}
+	if(need_change_frase == 1) count_chabge_fraze++;
+
+
+
+	static uint8_t poloj;
+	static uint16_t count_alarm;
+	if (poloj==0 && count_alarm==200 && alarm_active == 1)
+	{
+		count_alarm=0;
+		poloj = 1;
+		HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
+	}
+	else if (poloj==1 && count_alarm==200 && alarm_active == 1)
+	{
+		count_alarm=0;
 		poloj = 0;
 		HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_4);
 	}
+	else if(alarm_active == 1)
+		count_alarm++;
 
 }
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
@@ -886,7 +1020,7 @@ void WakeUp(void)
 	ST7789_SleepModeExit();
 	HAL_Delay(100);
 	ST7789_DrawFilledRectangle(5, 5, 285, 95, color_back_now);
-	//HAL_TIM_Base_Start_IT(&htim4);
+	HAL_TIM_Base_Start_IT(&htim4);
 	if(auto_change==1)
 	{
 	HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
@@ -987,10 +1121,11 @@ void WriteToDisplay(uint8_t hour, uint8_t minutes, uint8_t seconds, uint8_t day,
 		ST7789_PutString(5, 83, buf, Font_16x26, color_text, color_back_now);*/
 		if(hou_past==hour && min_past == minutes && auto_change==1)
 		{
-		ST7789_DrawFilledRectangle(5, 5, 285, 95, color_back_now);
-			number_fraze++;
-			if (number_fraze > 14)
-				number_fraze = 0;
+		//ST7789_DrawFilledRectangle(5, 5, 285, 95, color_back_now);
+			//number_fraze++;
+		need_change_frase = 1;
+			//if (number_fraze > 14)
+				//number_fraze = 0;
 			hou_past = hour + time_change / 60;
 			min_past = minutes + time_change % 60;
 			if (min_past >= 60) {
@@ -1028,75 +1163,82 @@ void WriteToDisplay(uint8_t hour, uint8_t minutes, uint8_t seconds, uint8_t day,
 		switch (number_fraze) {
 		case 0:
 			ST7789_PutString_Ramk(5, 5, 290, 240, "Ты моя любимая   девочка",
-					Font_16x26, color_text, color_back_now);
+					Font_16x26, color_text_frase, color_back_now);
 			break;
 		case 1:
 			ST7789_PutString_Ramk(5, 5, 290, 240,
-					"Ты самая лучшая вэтой вселенной", Font_16x26, color_text,
+					"Ты самая лучшая вэтой вселенной", Font_16x26, color_text_frase,
 					color_back_now);
 			break;
 		case 2:
 			ST7789_PutString_Ramk(5, 5, 290, 240,
-					"Ты богиня, спус- тившаяся с небес", Font_16x26, color_text,
+					"Ты богиня, спус- тившаяся с небес", Font_16x26, color_text_frase,
 					color_back_now);
 			break;
 		case 3:
 			ST7789_PutString_Ramk(5, 5, 290, 240,
-					"Ты самая красиваядевочка в этом   мире", Font_16x26, color_text,
+					"Ты самая красиваядевочка в этом   мире", Font_16x26, color_text_frase,
 					color_back_now);
 			break;
 		case 4:
 			ST7789_PutString_Ramk(5, 5, 290, 240,
-					"Ты лучшее, что сомной случалось", Font_16x26, color_text,
+					"Ты лучшее, что сомной случалось", Font_16x26, color_text_frase,
 					color_back_now);
 			break;
 		case 5:
 			ST7789_PutString_Ramk(5, 5, 290, 240,
-					"Твоя красота     покоряет мое     сердце", Font_16x26, color_text,
+					"Твоя красота     покоряет мое     сердце", Font_16x26, color_text_frase,
 					color_back_now);
 			break;
 		case 6:
 			ST7789_PutString_Ramk(5, 5, 290, 240,
-					"Моя любовь к тебене знает границ", Font_16x26, color_text,
+					"Моя любовь к тебене знает границ", Font_16x26, color_text_frase,
 					color_back_now);
 			break;
 		case 7:
 			ST7789_PutString_Ramk(5, 5, 290, 240, "Not fake, true   love",
-					Font_16x26, color_text, color_back_now);
+					Font_16x26, color_text_frase, color_back_now);
 			break;
 		case 8:
 			ST7789_PutString_Ramk(5, 5, 290, 240, "Горжусь тобой", Font_16x26,
-					color_text, color_back_now);
+					color_text_frase, color_back_now);
 			break;
 		case 9:
 			ST7789_PutString_Ramk(5, 5, 290, 240, "Ти самая умничка",
-					Font_16x26, color_text, color_back_now);
+					Font_16x26, color_text_frase, color_back_now);
 			break;
 		case 10:
 			ST7789_PutString_Ramk(5, 5, 290, 240,
-					"Очень тебя люблю и очень скучаю", Font_16x26, color_text,
+					"Очень тебя люблю и очень скучаю", Font_16x26, color_text_frase,
 					color_back_now);
 			break;
 		case 11:
 			ST7789_PutString_Ramk(5, 5, 290, 240, "Приезжай скорее",
-					Font_16x26, color_text, color_back_now);
+					Font_16x26, color_text_frase, color_back_now);
 			break;
 		case 12:
 			ST7789_PutString_Ramk(5, 5, 290, 240, "Ты лучше всех,   никого не слушай",
-					Font_16x26, color_text, color_back_now);
+					Font_16x26, color_text_frase, color_back_now);
 			break;
 		case 13:
 			ST7789_PutString_Ramk(5, 5, 290, 240, "Красивая как     ангел", Font_16x26,
-					color_text, color_back_now);
+					color_text_frase, color_back_now);
 			break;
 		case 14:
 			ST7789_PutString_Ramk(5, 5, 290, 240, "Очень скучаю, мойкотик",
-					Font_16x26, color_text, color_back_now);
+					Font_16x26, color_text_frase, color_back_now);
 			break;
 		}
 		}
+		if(flag_need_cleen_up == 1)
+		{
+			ST7789_DrawFilledRectangle(5, 5, 285, 95, color_back_now);
+			number_fraze++;
+			if(number_fraze>14)
+				number_fraze = 0;
 
-
+		flag_need_cleen_up = 0;
+		}
 		uint8_t charge_state = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_11);
 		static uint8_t count=3;
 		switch (charge_state) {
@@ -1248,6 +1390,7 @@ void WriteToDisplay(uint8_t hour, uint8_t minutes, uint8_t seconds, uint8_t day,
 		sprintf(buf, "Число: %02i", dat_set);
 		ST7789_PutString(5, 50, buf, Font_16x26, color_text, color_back_now);
 		//sprintf(buf, "День недели: %01i", weekday_set);
+#if 0
 		ST7789_PutString(5, 100, "День недели:", Font_16x26, color_text, color_back_now);
 		switch (weekday_set) {
 				case 0:
@@ -1272,10 +1415,11 @@ void WriteToDisplay(uint8_t hour, uint8_t minutes, uint8_t seconds, uint8_t day,
 					ST7789_PutString(213, 100, "Сб", Font_16x26, color_text, color_back_now);
 					break;
 				}
+#endif
 		sprintf(buf, "Месяц: %02i", mou_set);
-		ST7789_PutString(5, 150, buf, Font_16x26, color_text, color_back_now);
+		ST7789_PutString(5, 100, buf, Font_16x26, color_text, color_back_now);
 		sprintf(buf, "Год: %02i", year_set);
-		ST7789_PutString(5, 200, buf, Font_16x26, color_text, color_back_now);
+		ST7789_PutString(5, 150, buf, Font_16x26, color_text, color_back_now);
 		if (menu_index != menu_index_past) {
 			ST7789_DrawFilledRectangle(250, 5, 16 * 2, 240 - 11, color_back_now);
 			menu_index_past = menu_index;
@@ -1327,6 +1471,10 @@ void WriteToDisplay(uint8_t hour, uint8_t minutes, uint8_t seconds, uint8_t day,
 		ST7789_PutString(5, 150, buf, Font_16x26, color_text, color_back_now);
 		color_text_prev = (color_text_red << 11) | (color_text_green << 5)
 				| color_text_blue;
+		color_text_frase = color_text_prev;
+		color_text_frase_red = color_text_red;
+		color_text_frase_blue = color_text_blue;
+		color_text_frase_green = color_text_green;
 		ST7789_PutString(5, 200, "Цвет текста", Font_16x26, color_text_prev,
 				color_back);
 		}
@@ -1558,7 +1706,6 @@ void ButtonShortPressHandler(void){
 		{
 			alarm_active=0;
 		HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_4);
-		HAL_TIM_Base_Stop_IT(&htim4);
 		}
 		break;
 	case STATE_MENU:
@@ -1573,7 +1720,7 @@ void ButtonShortPressHandler(void){
 		break;
 	case STATE_MENU_ITEM_Date:
 		menu_index++;
-		if (menu_index > 3)
+		if (menu_index > 2)
 			menu_index = 0;
 		break;
 	case STATE_MENU_ITEM_Alarm:
@@ -1735,12 +1882,10 @@ void EncoderRight(void){
 		case STATE_MENU_ITEM_Date:
 			if(menu_index==0)dat_set++;
 			if(dat_set>31) dat_set=1;
-			if(menu_index==1)weekday_set++;
-			if(weekday_set>6) weekday_set=0;
-			if(menu_index==2)mou_set++;
+			if(menu_index==1)mou_set++;
 			if(mou_set>12) mou_set=1;
-			if(menu_index==3)year_set++;
-			if(year_set>100) year_set=0;
+			if(menu_index==2)year_set++;
+			if(year_set>99) year_set=0;
 			break;
 		case STATE_MENU_ITEM_Alarm:
 			if(menu_index==0)alarm_set++;
@@ -1843,17 +1988,13 @@ void EncoderLeft(void) {
 			dat_set = 31;
 		else if (menu_index == 0)
 			dat_set--;
-		if (weekday_set == 0 && menu_index == 1)
-			weekday_set = 6;
-		else if (menu_index == 1)
-			weekday_set--;
-		if (mou_set == 1 && menu_index == 2)
+		if (mou_set == 1 && menu_index == 1)
 			mou_set = 12;
-		else if (menu_index == 2)
+		else if (menu_index == 1)
 			mou_set--;
-		if (year_set == 0 && menu_index == 3)
+		if (year_set == 0 && menu_index == 2)
 			year_set = 99;
-		else if (menu_index == 3)
+		else if (menu_index == 2)
 			year_set--;
 		break;
 	case STATE_MENU_ITEM_Alarm:
@@ -1961,8 +2102,6 @@ void HAL_RTC_AlarmAEventCallback (RTC_HandleTypeDef * hrtc)
 		need_wake_up=1;
 	}
 	HAL_RTC_DeactivateAlarm(hrtc, RTC_ALARM_A);
-	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
-	HAL_TIM_Base_Start_IT(&htim4);
 }
 uint32_t rtc_to_seconds(RTC_DateTypeDef *d, RTC_TimeTypeDef *t)
 {
@@ -1981,7 +2120,8 @@ void Now_Time(void)
 	if(now_time - time_was >=time_set_to_switch_off)
 	{
 		time_was = now_time;
-		GoSleep();
+		//GoSleep();
+		sweetch_off = 1;
 
 	}
 }
