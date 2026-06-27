@@ -194,7 +194,7 @@ void ST7789_Init(void)
 	ST7789_TransmitCommand(ST7789_CMD_NVGAMCTRL);
 	ST7789_TransmitData(NVGAMCTRL_Default, 14);
 	
-	ST7789_TransmitCommand(ST7789_CMD_INVOFF); // Inversion ON
+	ST7789_TransmitCommand(ST7789_CMD_INVOFF); // Inversion OFF
 	ST7789_TransmitCommand(ST7789_CMD_SLPOUT); // Out of sleep mode
 	ST7789_TransmitCommand(ST7789_CMD_NORON); // Normal Display on
 	ST7789_TransmitCommand(ST7789_CMD_DISPON); // Main screen turned on
@@ -264,13 +264,6 @@ void ST7789_InvertColors(ST7789_InvTypeDef Invert)
 	
 }
 
-void ST7789_TearEffect(ST7789_ColorModeTypeDef Tear)
-{
-	
-	/* -------------- Transmit Command -------------- */
-	ST7789_TransmitCommand(Tear ? ST7789_TEAR_ON : ST7789_TEAR_OFF);
-	
-}
 
 /* ...................... Color Converting ..................... */
 ST7789_ColorTypeDef ST7789_Color_GetFromRGB(uint8_t R, uint8_t G, uint8_t B)
@@ -504,33 +497,60 @@ void ST7789_DrawRectangle(uint16_t XStart, uint16_t YStart, uint16_t XEnd, uint1
 
 void ST7789_DrawFilledRectangle(uint16_t XPos, uint16_t YPos, uint16_t Width, uint16_t Height, ST7789_ColorTypeDef Color)
 {
+#if 0
+	uint8_t heightCounter;
+	
+	/* -------------- Position Control -------------- */
+	if (XPos >= ST7789_WIDTH_MODIFIED || YPos >= ST7789_HEIGHT_MODIFIED)
+	{
+		return;
+	}
+	
+	/* ---------------- Size Control ---------------- */
+	if ((XPos + Width) >= ST7789_WIDTH_MODIFIED)
+	{
+		Width = ST7789_WIDTH_MODIFIED - XPos;
+	}
+	
+	if ((YPos + Height) >= ST7789_HEIGHT_MODIFIED)
+	{
+		Height = ST7789_HEIGHT_MODIFIED - YPos;
+	}
+	
+	/* ----------------- Draw Lines ----------------- */
+	for (heightCounter = 0; heightCounter <= Height; heightCounter++)
+	{
+		ST7789_DrawLine(XPos, YPos + heightCounter, XPos + Width, YPos + heightCounter, Color);
+	}
+#endif
 	ST7789_SetWindowAddress(XPos, YPos, XPos+Width-1, YPos+Height-1);
-		uint32_t size_trans = Width*Height*2;
-		uint32_t i;
-		//uint16_t count_buf=0;
+	uint32_t size_trans = Width*Height*2;
+	uint32_t i;
+	//uint16_t count_buf=0;
 
-		if(size_trans/sizeof(LCDBuffer) == 0)
-		{
-		for(i = 0;i<size_trans;i+=2)
-		{
-			LCDBuffer[i] = Color>>8;
-			LCDBuffer[i+1] = Color & 0xFF;
-		}
-		ST7789_TransmitData(LCDBuffer, i);
-		}
-		else
-		{
-			for(i = 0;i<sizeof(LCDBuffer);i+=2)
-				{
-					LCDBuffer[i] = Color>>8;
-					LCDBuffer[i+1] = Color & 0xFF;
-				}
-			for(uint8_t j = 0;j<size_trans/sizeof(LCDBuffer);++j)
+	if(size_trans/sizeof(LCDBuffer) == 0)
+	{
+	for(i = 0;i<size_trans;i+=2)
+	{
+		LCDBuffer[i] = Color>>8;
+		LCDBuffer[i+1] = Color & 0xFF;
+	}
+	ST7789_TransmitData(LCDBuffer, i);
+	}
+	else
+	{
+		for(i = 0;i<sizeof(LCDBuffer);i+=2)
 			{
-				ST7789_TransmitData(LCDBuffer, sizeof(LCDBuffer));
+				LCDBuffer[i] = Color>>8;
+				LCDBuffer[i+1] = Color & 0xFF;
 			}
-			ST7789_TransmitData(LCDBuffer, size_trans%sizeof(LCDBuffer));
+		for(uint8_t j = 0;j<size_trans/sizeof(LCDBuffer);++j)
+		{
+			ST7789_TransmitData(LCDBuffer, sizeof(LCDBuffer));
 		}
+		ST7789_TransmitData(LCDBuffer, size_trans%sizeof(LCDBuffer));
+	}
+	
 }
 
 void ST7789_DrawCircle(uint16_t XPos, uint16_t YPos, uint8_t Radius, ST7789_ColorTypeDef Color)
